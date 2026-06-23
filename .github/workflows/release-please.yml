@@ -1,0 +1,54 @@
+# Release-Please Workflow
+#
+# Runs release-please on every push to main. Release-please reads the commit
+# history since the last release, determines the next version, and opens (or
+# updates) a release PR. When that PR is merged, release-please creates the git
+# tag and publishes the GitHub Release.
+#
+# After the release-please job, a second job (build-release-assets) is gated on
+# the release-please output `release_created`. When a release was actually
+# created, that job calls the reusable release workflow
+# (.github/workflows/release.yml) via workflow_call, passing the newly created
+# tag. Because this runs in the same workflow run that cut the release, it is
+# not subject to the GitHub restriction that blocks GITHUB_TOKEN-created events
+# from triggering new workflow runs.
+#
+# Config: release-please-config.json (root Go package, bump-patch-for-minor-pre-major)
+# Manifest: .release-please-manifest.json (seeded at 0.1.0 for the first release)
+
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build-release-assets:
+    name: Build Release Assets
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
