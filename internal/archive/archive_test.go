@@ -145,6 +145,22 @@ func TestPrepareBareBinaryIsMadeExecutable(t *testing.T) {
 	require.NotZero(t, info.Mode().Perm()&0o100)
 }
 
+// TestPrepareFailedUnpackLeavesNoDestination verifies that a failed extraction
+// leaves no destination directory behind, so it is not mistaken for a complete
+// unpack on a later run.
+func TestPrepareFailedUnpackLeavesNoDestination(t *testing.T) {
+	dir := t.TempDir()
+	asset := filepath.Join(dir, "corrupt.tar.gz")
+	require.NoError(t, os.WriteFile(asset, []byte("not a gzip stream"), 0o644))
+
+	dest := filepath.Join(dir, "unpacked")
+	_, err := archive.Prepare(asset, dest, "tool", "", false)
+	require.Error(t, err)
+
+	_, statErr := os.Stat(dest)
+	require.True(t, os.IsNotExist(statErr))
+}
+
 // TestPrepareForceReunpacksCleansDestination verifies that force re-extracts the
 // archive into a fresh destination, discarding stale unpacked files.
 func TestPrepareForceReunpacksCleansDestination(t *testing.T) {

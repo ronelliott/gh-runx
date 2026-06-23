@@ -44,7 +44,11 @@ The flow lives in `run` (`main.go`) and is split into focused packages:
 - `internal/cache` — download an asset to the user config dir and reuse it; the
   `doer` seam matches the go-gh REST client's `Request` method.
 - `internal/archive` — unpack `.tar.gz`/`.tgz`/`.zip` (or pass a bare binary
-  through) and pick the executable to run.
+  through) and pick the executable to run. Extraction is atomic: it writes to a
+  temp dir and renames into place, so a failed unpack leaves no partial tree.
+- `internal/checksum` — when a release ships a SHA-256 sums manifest
+  (`SHA256SUMS`, `checksums.txt`, …), verify the downloaded asset against it.
+  Verification runs only on a fresh download, not on cache hits.
 - `internal/runner` — replace the process via `syscall.Exec` on Unix; run a
   child process on Windows (`//go:build` split).
 

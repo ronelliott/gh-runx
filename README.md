@@ -102,6 +102,19 @@ The layout is `<owner>/<repo>/<tag>/`, holding the downloaded asset and an
 `unpacked/` tree. Use `--force` to refresh a cached release, or delete a tag
 directory to clear it.
 
+## Security
+
+`gh-runx` downloads and **executes** code from a release. Only run repositories
+you trust.
+
+- Assets are fetched over HTTPS through the authenticated GitHub API.
+- When a release publishes a SHA-256 sums manifest (`SHA256SUMS`,
+  `checksums.txt`, and similar), the downloaded asset is verified against it and
+  the run aborts on a mismatch. Verification happens on download; cached assets
+  are trusted on reuse (use `--force` to re-verify).
+- Releases without a sums manifest cannot be integrity-checked beyond transport
+  security.
+
 ## Requirements
 
 - [GitHub CLI](https://cli.github.com) (`gh`), authenticated (`gh auth login`).

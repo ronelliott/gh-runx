@@ -107,7 +107,10 @@ func resolveOverride(destDir, execOverride string) (string, error) {
 }
 
 // unpack extracts assetPath into destDir, skipping work if already unpacked.
-// When force is set, an existing destDir is removed first so extraction is fresh.
+// Extraction goes to a temporary sibling directory that is renamed into place
+// only on success, so destDir is never left holding a partial tree (an
+// interrupted or failed extraction leaves no destDir to be mistaken for a
+// complete one). When force is set, an existing destDir is replaced.
 func unpack(assetPath, destDir string, force bool) error {
 	if force {
 		if err := os.RemoveAll(destDir); err != nil {
@@ -116,16 +119,40 @@ func unpack(assetPath, destDir string, force bool) error {
 	} else if entries, err := os.ReadDir(destDir); err == nil && len(entries) > 0 {
 		return nil
 	}
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return fmt.Errorf("archive: creating %s: %w", destDir, err)
+
+	parent := filepath.Dir(destDir)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("archive: creating %s: %w", parent, err)
+	}
+	tmp, err := os.MkdirTemp(parent, ".unpack-*")
+	if err != nil {
+		return fmt.Errorf("archive: creating temp dir: %w", err)
 	}
 
+	if err := extractInto(assetPath, tmp); err != nil {
+		os.RemoveAll(tmp)
+		return err
+	}
+
+	if err := os.RemoveAll(destDir); err != nil {
+		os.RemoveAll(tmp)
+		return fmt.Errorf("archive: clearing %s: %w", destDir, err)
+	}
+	if err := os.Rename(tmp, destDir); err != nil {
+		os.RemoveAll(tmp)
+		return fmt.Errorf("archive: finalizing %s: %w", destDir, err)
+	}
+	return nil
+}
+
+// extractInto extracts assetPath into dir based on its archive extension.
+func extractInto(assetPath, dir string) error {
 	lower := strings.ToLower(assetPath)
 	switch {
 	case strings.HasSuffix(lower, ".zip"):
-		return unpackZip(assetPath, destDir)
+		return unpackZip(assetPath, dir)
 	case strings.HasSuffix(lower, ".tar.gz"), strings.HasSuffix(lower, ".tgz"):
-		return unpackTarGz(assetPath, destDir)
+		return unpackTarGz(assetPath, dir)
 	default:
 		return fmt.Errorf("%w: %s", ErrUnsupportedArchive, filepath.Base(assetPath))
 	}

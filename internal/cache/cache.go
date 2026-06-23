@@ -45,25 +45,39 @@ func DefaultRoot() (string, error) {
 	return filepath.Join(dir, "gh-runx", "cache"), nil
 }
 
-// EnsureAsset downloads asset to the tag directory and returns its path. A
-// cached file is reused unless force is set, which always re-downloads.
-func (s *Store) EnsureAsset(owner, repo, tag, assetName, url string, force bool) (string, error) {
+// EnsureAsset downloads asset to the tag directory and returns its path along
+// with whether a download occurred. A cached file is reused (downloaded=false)
+// unless force is set, which always re-downloads.
+func (s *Store) EnsureAsset(owner, repo, tag, assetName, url string, force bool) (path string, downloaded bool, err error) {
+	if !safeName(assetName) {
+		return "", false, fmt.Errorf("cache: unsafe asset name %q", assetName)
+	}
+
 	dir := s.TagDir(owner, repo, tag)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("cache: creating %s: %w", dir, err)
+		return "", false, fmt.Errorf("cache: creating %s: %w", dir, err)
 	}
 
 	dest := filepath.Join(dir, assetName)
 	if !force {
 		if _, err := os.Stat(dest); err == nil {
-			return dest, nil
+			return dest, false, nil
 		}
 	}
 
 	if err := s.download(url, dest); err != nil {
-		return "", err
+		return "", false, err
 	}
-	return dest, nil
+	return dest, true, nil
+}
+
+// safeName reports whether assetName is a plain file name that cannot escape
+// the cache directory. The name comes from publisher-controlled release JSON.
+func safeName(assetName string) bool {
+	if assetName == "" || assetName == "." || assetName == ".." {
+		return false
+	}
+	return assetName == filepath.Base(assetName)
 }
 
 // TagDir returns the directory holding artifacts for owner/repo at tag.
