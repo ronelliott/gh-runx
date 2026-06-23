@@ -1,8 +1,38 @@
-name: release
+# Release Workflow
+#
+# Reusable workflow (workflow_call) that builds the precompiled gh extension
+# binaries for every supported platform and publishes them to a GitHub Release,
+# using the official cli/gh-extension-precompile action. When the release for
+# the tag already exists (release-please creates it), the action uploads the
+# binaries to it; otherwise it creates the release.
+#
+# Triggers:
+#
+#   workflow_call — invoked by release-please.yml after release-please cuts a
+#     release. Receives the tag to build as an input. Because this runs inside
+#     the same workflow run that created the release, it is not subject to the
+#     GitHub restriction that blocks GITHUB_TOKEN-created events (the tag/release
+#     push) from triggering new workflow runs.
+#
+#   workflow_dispatch — manual fallback for rebuilding/re-uploading assets for
+#     an existing tag (e.g. to recover from a failed asset build).
+
+name: Release
+
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
+    inputs:
+      tag:
+        description: "The release tag to build (e.g. v0.2.0)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release tag to build (e.g. v0.2.0)"
+        required: true
+        type: string
+
 permissions:
   contents: write
   id-token: write
@@ -10,10 +40,17 @@ permissions:
 
 jobs:
   release:
+    name: Build and publish precompiled assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: cli/gh-extension-precompile@v2
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
-          generate_attestations: true
+          ref: ${{ inputs.tag }}
+
+      - name: Build and publish
+        uses: cli/gh-extension-precompile@v2
+        with:
           go_version_file: go.mod
+          generate_attestations: true
+          release_tag: ${{ inputs.tag }}
