@@ -19,8 +19,8 @@ type stubDoer struct {
 	calls int
 }
 
-// Get returns a 200 response with the stub body and counts the call.
-func (s *stubDoer) Get(url string) (*http.Response, error) {
+// Request returns a 200 response with the stub body and counts the call.
+func (s *stubDoer) Request(method, url string, body io.Reader) (*http.Response, error) {
 	s.calls++
 	return &http.Response{
 		Status:     "200 OK",
@@ -70,8 +70,8 @@ func TestEnsureAssetReportsBadStatus(t *testing.T) {
 // errorDoer is a doer that returns a 404 response.
 type errorDoer struct{}
 
-// Get returns a 404 response with an empty body.
-func (errorDoer) Get(url string) (*http.Response, error) {
+// Request returns a 404 response with an empty body.
+func (errorDoer) Request(method, url string, body io.Reader) (*http.Response, error) {
 	return &http.Response{
 		Status:     "404 Not Found",
 		StatusCode: http.StatusNotFound,

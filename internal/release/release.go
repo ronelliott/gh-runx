@@ -12,11 +12,13 @@ import (
 
 // Asset is a single downloadable file attached to a release.
 type Asset struct {
-	// DownloadURL is the browser download URL for the asset.
-	DownloadURL string
-
 	// Name is the asset file name.
 	Name string
+
+	// URL is the GitHub API URL for the asset. Fetching it with an
+	// Accept: application/octet-stream header returns the asset bytes and
+	// works for private repositories when the request is authenticated.
+	URL string
 }
 
 // Release is a published repository release.
@@ -72,8 +74,8 @@ func (c *Client) fetch(path string) (Release, error) {
 // releasePayload mirrors the GitHub release JSON shape.
 type releasePayload struct {
 	Assets []struct {
-		BrowserDownloadURL string `json:"browser_download_url"`
-		Name               string `json:"name"`
+		Name string `json:"name"`
+		URL  string `json:"url"`
 	} `json:"assets"`
 
 	TagName string `json:"tag_name"`
@@ -83,7 +85,7 @@ type releasePayload struct {
 func (p releasePayload) toRelease() Release {
 	assets := make([]Asset, 0, len(p.Assets))
 	for _, a := range p.Assets {
-		assets = append(assets, Asset{DownloadURL: a.BrowserDownloadURL, Name: a.Name})
+		assets = append(assets, Asset{Name: a.Name, URL: a.URL})
 	}
 	return Release{Assets: assets, Tag: p.TagName}
 }

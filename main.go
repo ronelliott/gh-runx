@@ -73,16 +73,18 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	httpClient, err := api.DefaultHTTPClient()
+	downloader, err := api.NewRESTClient(api.ClientOptions{
+		Headers: map[string]string{"Accept": "application/octet-stream"},
+	})
 	if err != nil {
-		return fmt.Errorf("creating HTTP client: %w", err)
+		return fmt.Errorf("creating asset download client: %w", err)
 	}
-	store, err := cache.New(root, httpClient)
+	store, err := cache.New(root, downloader)
 	if err != nil {
 		return err
 	}
 
-	assetPath, err := store.EnsureAsset(owner, repo, rel.Tag, asset.Name, asset.DownloadURL)
+	assetPath, err := store.EnsureAsset(owner, repo, rel.Tag, asset.Name, asset.URL)
 	if err != nil {
 		return err
 	}

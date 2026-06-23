@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 )
 
-// doer performs HTTP GET requests for asset downloads.
+// doer performs authenticated HTTP requests for asset downloads. It matches
+// the go-gh REST client's Request method, which carries the GitHub token and
+// follows the asset API redirect so private-repo assets download.
 type doer interface {
-	Get(url string) (*http.Response, error)
+	Request(method, path string, body io.Reader) (*http.Response, error)
 }
 
 // Store manages downloaded release assets under a root directory.
@@ -68,7 +70,7 @@ func (s *Store) TagDir(owner, repo, tag string) string {
 
 // download fetches url and writes it atomically to dest.
 func (s *Store) download(url, dest string) error {
-	resp, err := s.client.Get(url)
+	resp, err := s.client.Request(http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("cache: downloading %s: %w", url, err)
 	}

@@ -31,7 +31,7 @@ func TestClientLatestReturnsReleaseWithAssets(t *testing.T) {
 	body := `{
 		"tag_name": "v1.2.3",
 		"assets": [
-			{"name": "tool_darwin_arm64.tar.gz", "browser_download_url": "https://example.com/a"}
+			{"name": "tool_darwin_arm64.tar.gz", "url": "https://api.github.com/repos/octocat/tool/releases/assets/42"}
 		]
 	}`
 	client, err := release.New(stubGetter{body: body})
@@ -42,7 +42,7 @@ func TestClientLatestReturnsReleaseWithAssets(t *testing.T) {
 	require.Equal(t, "v1.2.3", rel.Tag)
 	require.Len(t, rel.Assets, 1)
 	require.Equal(t, "tool_darwin_arm64.tar.gz", rel.Assets[0].Name)
-	require.Equal(t, "https://example.com/a", rel.Assets[0].DownloadURL)
+	require.Equal(t, "https://api.github.com/repos/octocat/tool/releases/assets/42", rel.Assets[0].URL)
 }
 
 // TestClientByTagMapsNotFoundToSentinel verifies that a 404 from the API is
