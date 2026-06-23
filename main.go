@@ -1,24 +1,19 @@
 package main
 
 import (
-	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 
 	"github.com/ronelliott/gh-runx/internal/archive"
 	"github.com/ronelliott/gh-runx/internal/cache"
+	"github.com/ronelliott/gh-runx/internal/cli"
 	"github.com/ronelliott/gh-runx/internal/release"
 	"github.com/ronelliott/gh-runx/internal/runner"
 )
-
-// usage describes the command-line interface.
-const usage = "usage: gh runx <org/repo> [--version tag] [--exec path] [--force] [-- args...]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -29,25 +24,7 @@ func main() {
 
 // run parses arguments, resolves and runs the matching release asset.
 func run(args []string) error {
-	var forwardArgs []string
-	if idx := indexOf(args, "--"); idx >= 0 {
-		forwardArgs = args[idx+1:]
-		args = args[:idx]
-	}
-
-	fs := flag.NewFlagSet("gh-runx", flag.ContinueOnError)
-	version := fs.String("version", "", "release tag to run (default: latest)")
-	execPath := fs.String("exec", "", "path within the archive to execute")
-	force := fs.Bool("force", false, "re-download and re-unpack even if cached")
-	fs.BoolVar(force, "f", false, "shorthand for --force")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if fs.NArg() != 1 {
-		return errors.New(usage)
-	}
-
-	owner, repo, err := splitRepo(fs.Arg(0))
+	opts, err := cli.Parse(args)
 	if err != nil {
 		return err
 	}
@@ -61,7 +38,7 @@ func run(args []string) error {
 		return err
 	}
 
-	rel, err := resolveRelease(releases, owner, repo, *version)
+	rel, err := resolveRelease(releases, opts.Owner, opts.Repo, opts.Version)
 	if err != nil {
 		return err
 	}
@@ -86,18 +63,18 @@ func run(args []string) error {
 		return err
 	}
 
-	assetPath, err := store.EnsureAsset(owner, repo, rel.Tag, asset.Name, asset.URL, *force)
+	assetPath, err := store.EnsureAsset(opts.Owner, opts.Repo, rel.Tag, asset.Name, asset.URL, opts.Force)
 	if err != nil {
 		return err
 	}
 
-	destDir := filepath.Join(store.TagDir(owner, repo, rel.Tag), "unpacked")
-	execTarget, err := archive.Prepare(assetPath, destDir, repo, *execPath, *force)
+	destDir := filepath.Join(store.TagDir(opts.Owner, opts.Repo, rel.Tag), "unpacked")
+	execTarget, err := archive.Prepare(assetPath, destDir, opts.Repo, opts.Exec, opts.Force)
 	if err != nil {
 		return err
 	}
 
-	return runner.Exec(execTarget, forwardArgs)
+	return runner.Exec(execTarget, opts.ForwardArgs)
 }
 
 // resolveRelease returns the requested release, or the latest when tag is empty.
@@ -106,23 +83,4 @@ func resolveRelease(releases *release.Client, owner, repo, tag string) (release.
 		return releases.ByTag(owner, repo, tag)
 	}
 	return releases.Latest(owner, repo)
-}
-
-// indexOf returns the index of value in args, or -1 when absent.
-func indexOf(args []string, value string) int {
-	for i, a := range args {
-		if a == value {
-			return i
-		}
-	}
-	return -1
-}
-
-// splitRepo splits an "org/repo" argument into its owner and repo parts.
-func splitRepo(arg string) (string, string, error) {
-	owner, repo, ok := strings.Cut(arg, "/")
-	if !ok || owner == "" || repo == "" || strings.Contains(repo, "/") {
-		return "", "", fmt.Errorf("expected <org/repo>, got %q", arg)
-	}
-	return owner, repo, nil
 }
