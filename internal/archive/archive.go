@@ -19,7 +19,8 @@ var archiveSuffixes = []string{".tar.gz", ".tgz", ".zip"}
 // Prepare makes the asset at assetPath runnable and returns the path of the
 // executable to run. Archives are unpacked into destDir; repoName selects the
 // executable inside an archive and execOverride forces a specific relative path.
-func Prepare(assetPath, destDir, repoName, execOverride string) (string, error) {
+// When force is set, an already-unpacked destDir is discarded and re-extracted.
+func Prepare(assetPath, destDir, repoName, execOverride string, force bool) (string, error) {
 	if !isArchive(assetPath) {
 		if err := os.Chmod(assetPath, 0o755); err != nil {
 			return "", fmt.Errorf("archive: making %s executable: %w", assetPath, err)
@@ -27,7 +28,7 @@ func Prepare(assetPath, destDir, repoName, execOverride string) (string, error) 
 		return assetPath, nil
 	}
 
-	if err := unpack(assetPath, destDir); err != nil {
+	if err := unpack(assetPath, destDir, force); err != nil {
 		return "", err
 	}
 
@@ -106,8 +107,13 @@ func resolveOverride(destDir, execOverride string) (string, error) {
 }
 
 // unpack extracts assetPath into destDir, skipping work if already unpacked.
-func unpack(assetPath, destDir string) error {
-	if entries, err := os.ReadDir(destDir); err == nil && len(entries) > 0 {
+// When force is set, an existing destDir is removed first so extraction is fresh.
+func unpack(assetPath, destDir string, force bool) error {
+	if force {
+		if err := os.RemoveAll(destDir); err != nil {
+			return fmt.Errorf("archive: clearing %s: %w", destDir, err)
+		}
+	} else if entries, err := os.ReadDir(destDir); err == nil && len(entries) > 0 {
 		return nil
 	}
 	if err := os.MkdirAll(destDir, 0o755); err != nil {

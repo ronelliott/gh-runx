@@ -59,7 +59,7 @@ func TestPrepareUnpacksAndPicksRepoNamedExecutable(t *testing.T) {
 	})
 
 	dest := filepath.Join(dir, "unpacked")
-	got, err := archive.Prepare(asset, dest, "tool", "")
+	got, err := archive.Prepare(asset, dest, "tool", "", false)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(dest, "tool"), got)
 }
@@ -75,7 +75,7 @@ func TestPrepareRunsSingleExecutable(t *testing.T) {
 	})
 
 	dest := filepath.Join(dir, "unpacked")
-	got, err := archive.Prepare(asset, dest, "tool", "")
+	got, err := archive.Prepare(asset, dest, "tool", "", false)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(dest, "renamed-binary"), got)
 }
@@ -91,7 +91,7 @@ func TestPrepareAmbiguousExecutablesReturnsError(t *testing.T) {
 	})
 
 	dest := filepath.Join(dir, "unpacked")
-	_, err := archive.Prepare(asset, dest, "tool", "")
+	_, err := archive.Prepare(asset, dest, "tool", "", false)
 	require.ErrorIs(t, err, archive.ErrAmbiguousExecutable)
 }
 
@@ -105,7 +105,7 @@ func TestPrepareNoExecutableReturnsError(t *testing.T) {
 	})
 
 	dest := filepath.Join(dir, "unpacked")
-	_, err := archive.Prepare(asset, dest, "tool", "")
+	_, err := archive.Prepare(asset, dest, "tool", "", false)
 	require.ErrorIs(t, err, archive.ErrNoExecutable)
 }
 
@@ -120,7 +120,7 @@ func TestPrepareExecOverrideSelectsPath(t *testing.T) {
 	})
 
 	dest := filepath.Join(dir, "unpacked")
-	got, err := archive.Prepare(asset, dest, "tool", "bin/runme")
+	got, err := archive.Prepare(asset, dest, "tool", "bin/runme", false)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(dest, "bin", "runme"), got)
 
@@ -136,11 +136,36 @@ func TestPrepareBareBinaryIsMadeExecutable(t *testing.T) {
 	asset := filepath.Join(dir, "tool-darwin-arm64")
 	require.NoError(t, os.WriteFile(asset, []byte("#!/bin/sh\n"), 0o644))
 
-	got, err := archive.Prepare(asset, filepath.Join(dir, "unpacked"), "tool", "")
+	got, err := archive.Prepare(asset, filepath.Join(dir, "unpacked"), "tool", "", false)
 	require.NoError(t, err)
 	require.Equal(t, asset, got)
 
 	info, err := os.Stat(got)
 	require.NoError(t, err)
 	require.NotZero(t, info.Mode().Perm()&0o100)
+}
+
+// TestPrepareForceReunpacksCleansDestination verifies that force re-extracts the
+// archive into a fresh destination, discarding stale unpacked files.
+func TestPrepareForceReunpacksCleansDestination(t *testing.T) {
+	dir := t.TempDir()
+	asset := filepath.Join(dir, "tool.tar.gz")
+	writeTarGz(t, asset, []tarEntry{
+		{name: "tool", body: "#!/bin/sh\n", mode: 0o755},
+	})
+
+	dest := filepath.Join(dir, "unpacked")
+	_, err := archive.Prepare(asset, dest, "tool", "", false)
+	require.NoError(t, err)
+
+	// A stale file from a prior unpack must not survive a forced re-extract.
+	stale := filepath.Join(dest, "stale")
+	require.NoError(t, os.WriteFile(stale, []byte("old"), 0o644))
+
+	got, err := archive.Prepare(asset, dest, "tool", "", true)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dest, "tool"), got)
+
+	_, statErr := os.Stat(stale)
+	require.True(t, os.IsNotExist(statErr))
 }

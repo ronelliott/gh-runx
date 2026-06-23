@@ -37,7 +37,7 @@ func TestEnsureAssetDownloadsThenCaches(t *testing.T) {
 	store, err := cache.New(root, doer)
 	require.NoError(t, err)
 
-	path, err := store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a")
+	path, err := store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a", false)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(root, "octocat", "tool", "v1", "tool.tar.gz"), path)
 	require.Equal(t, 1, doer.calls)
@@ -46,10 +46,28 @@ func TestEnsureAssetDownloadsThenCaches(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "binary-bytes", string(contents))
 
-	again, err := store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a")
+	again, err := store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a", false)
 	require.NoError(t, err)
 	require.Equal(t, path, again)
 	require.Equal(t, 1, doer.calls)
+}
+
+// TestEnsureAssetForceRedownloadsCachedFile verifies that force re-downloads an
+// asset that is already cached.
+func TestEnsureAssetForceRedownloadsCachedFile(t *testing.T) {
+	root := t.TempDir()
+	doer := &stubDoer{body: "binary-bytes"}
+	store, err := cache.New(root, doer)
+	require.NoError(t, err)
+
+	path, err := store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, doer.calls)
+
+	again, err := store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a", true)
+	require.NoError(t, err)
+	require.Equal(t, path, again)
+	require.Equal(t, 2, doer.calls)
 }
 
 // TestEnsureAssetReportsBadStatus verifies that a non-200 response surfaces an
@@ -60,7 +78,7 @@ func TestEnsureAssetReportsBadStatus(t *testing.T) {
 	store, err := cache.New(root, doer)
 	require.NoError(t, err)
 
-	_, err = store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a")
+	_, err = store.EnsureAsset("octocat", "tool", "v1", "tool.tar.gz", "https://example.com/a", false)
 	require.Error(t, err)
 
 	_, statErr := os.Stat(filepath.Join(root, "octocat", "tool", "v1", "tool.tar.gz"))

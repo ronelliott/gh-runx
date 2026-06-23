@@ -45,16 +45,19 @@ func DefaultRoot() (string, error) {
 	return filepath.Join(dir, "gh-runx", "cache"), nil
 }
 
-// EnsureAsset downloads asset to the tag directory if absent and returns its path.
-func (s *Store) EnsureAsset(owner, repo, tag, assetName, url string) (string, error) {
+// EnsureAsset downloads asset to the tag directory and returns its path. A
+// cached file is reused unless force is set, which always re-downloads.
+func (s *Store) EnsureAsset(owner, repo, tag, assetName, url string, force bool) (string, error) {
 	dir := s.TagDir(owner, repo, tag)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("cache: creating %s: %w", dir, err)
 	}
 
 	dest := filepath.Join(dir, assetName)
-	if _, err := os.Stat(dest); err == nil {
-		return dest, nil
+	if !force {
+		if _, err := os.Stat(dest); err == nil {
+			return dest, nil
+		}
 	}
 
 	if err := s.download(url, dest); err != nil {

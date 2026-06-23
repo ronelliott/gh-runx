@@ -18,7 +18,7 @@ import (
 )
 
 // usage describes the command-line interface.
-const usage = "usage: gh runx <org/repo> [--version tag] [--exec path] [-- args...]"
+const usage = "usage: gh runx <org/repo> [--version tag] [--exec path] [--force] [-- args...]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -38,6 +38,8 @@ func run(args []string) error {
 	fs := flag.NewFlagSet("gh-runx", flag.ContinueOnError)
 	version := fs.String("version", "", "release tag to run (default: latest)")
 	execPath := fs.String("exec", "", "path within the archive to execute")
+	force := fs.Bool("force", false, "re-download and re-unpack even if cached")
+	fs.BoolVar(force, "f", false, "shorthand for --force")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -84,13 +86,13 @@ func run(args []string) error {
 		return err
 	}
 
-	assetPath, err := store.EnsureAsset(owner, repo, rel.Tag, asset.Name, asset.URL)
+	assetPath, err := store.EnsureAsset(owner, repo, rel.Tag, asset.Name, asset.URL, *force)
 	if err != nil {
 		return err
 	}
 
 	destDir := filepath.Join(store.TagDir(owner, repo, rel.Tag), "unpacked")
-	execTarget, err := archive.Prepare(assetPath, destDir, repo, *execPath)
+	execTarget, err := archive.Prepare(assetPath, destDir, repo, *execPath, *force)
 	if err != nil {
 		return err
 	}
