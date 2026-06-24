@@ -7,23 +7,31 @@ labels: 'type:bug'
 
 ## Summary
 
-<!-- What's wrong, what you expected instead, and why it matters.
-Include repro steps and the exact error output if you have them. -->
+<!-- A short description of what's wrong. -->
 
-## Scope
+## Steps to Reproduce
 
-<!-- What fixing this covers — one unit of work. -->
+<!-- The exact commands or actions that trigger the bug. -->
 
 1.
+2.
 
-## Acceptance Criteria
+## Expected Behavior
 
-- [ ] The bug no longer reproduces.
-- [ ] A regression test covers it.
-- [ ] `go test ./...` passes.
+<!-- What you expected to happen. -->
+
+## Actual Behavior
+
+<!-- What actually happened. Include the exact error output if any. -->
+
+## Environment
+
+- `gh runx` version:
+- OS / arch:
+- `gh` version:
 
 ## Notes
 
-<!-- Environment, affected files, edge cases, or "None." -->
+<!-- Anything else: suspected cause, affected files, workarounds, or "None." -->
 
 None.
